@@ -2,8 +2,6 @@
 
 A simple, lightweight, and persistent Unity Editor extension to automatically track how much time you spend inside your project. Perfect for indie devs who want to know where their hours actually go!
 
-**WARNING**: Not support Unity 4.5 or higher
-
 ---
 
 ## ✨ Features
