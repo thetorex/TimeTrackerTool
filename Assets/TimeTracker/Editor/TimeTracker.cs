@@ -4,42 +4,69 @@ using UnityEngine;
 [InitializeOnLoad]
 public class ProjectTimeTracker : EditorWindow
 {
-    private static double sessionStartTime;
-    private static string prefsKey = "TotalTime_" + Application.productName;
+    private static double lastUpdateTime;
+    private static double currentSessionSeconds;
+    private static double totalSecondsSaved;
+    private static string prefsKey = "TimeTracker_ProjectName"; // UPDATE THIS FOR EVERY PROJECT
 
     static ProjectTimeTracker()
     {
-        sessionStartTime = EditorApplication.timeSinceStartup;
-        EditorApplication.quitting += OnQuitting;
+        lastUpdateTime = EditorApplication.timeSinceStartup;
+        LoadTotalTime();
+
+        // precaution for crash
+        EditorApplication.update += OnUpdate;
+        EditorApplication.quitting += SaveTime;
     }
 
-    private static void OnQuitting()
+    private static void LoadTotalTime()
     {
-        double currentSessionTime = EditorApplication.timeSinceStartup - sessionStartTime;
-        float totalTimeSaved = EditorPrefs.GetFloat(prefsKey, 0f);
-        EditorPrefs.SetFloat(prefsKey, totalTimeSaved + (float)currentSessionTime);
+        string savedTimeStr = EditorPrefs.GetString(prefsKey, "0");
+        if (!double.TryParse(savedTimeStr, out totalSecondsSaved))
+        {
+            totalSecondsSaved = 0;
+        }
     }
 
-    [MenuItem("Tools/Project Time Tracker")]
+    private static void SaveTime()
+    {
+        double grandTotal = totalSecondsSaved + currentSessionSeconds;
+        EditorPrefs.SetString(prefsKey, grandTotal.ToString("F2"));
+        
+        totalSecondsSaved = grandTotal;
+        currentSessionSeconds = 0;
+    }
+
+    private static void OnUpdate()
+    {
+        double now = EditorApplication.timeSinceStartup;
+        double deltaTime = now - lastUpdateTime;
+        lastUpdateTime = now;
+
+        currentSessionSeconds += deltaTime;
+
+        // automaticly save the time every 5 min (300 sec)
+        if (currentSessionSeconds >= 300) 
+        {
+            SaveTime();
+        }
+    }
+
+    [MenuItem("Tools/Time Tracker")]
     public static void ShowWindow()
     {
-        ProjectTimeTracker window = GetWindow<ProjectTimeTracker>(true, "Zaman Takibi", true);
-        // Boyutları içeriğe tam sığacak şekilde optimize ettik
+        ProjectTimeTracker window = GetWindow<ProjectTimeTracker>(true, "Project Time Tracker", true);
         window.minSize = new Vector2(280, 190);
         window.maxSize = new Vector2(280, 190);
     }
 
     void OnGUI()
     {
-        // Zaman Hesaplamaları
-        float totalSecondsSaved = EditorPrefs.GetFloat(prefsKey, 0f);
-        double currentSessionSeconds = EditorApplication.timeSinceStartup - sessionStartTime;
-        float grandTotalSeconds = totalSecondsSaved + (float)currentSessionSeconds;
+        double grandTotalSeconds = totalSecondsSaved + currentSessionSeconds;
 
-        // Stil Hazırlıkları
         GUIStyle timeStyle = new GUIStyle(EditorStyles.boldLabel) { 
             alignment = TextAnchor.MiddleCenter, 
-            fontSize = 20 // Okunabilirliği artırmak için biraz büyüttük
+            fontSize = 20 
         };
         GUIStyle headerStyle = new GUIStyle(EditorStyles.miniBoldLabel) { 
             alignment = TextAnchor.MiddleCenter 
@@ -47,38 +74,38 @@ public class ProjectTimeTracker : EditorWindow
 
         EditorGUILayout.Space(12);
 
-        // --- 1. ŞİMDİKİ OTURUM ---
+        // --- 1. Current Session ---
         EditorGUILayout.BeginVertical("helpBox");
-        GUILayout.Label("ŞİMDİKİ OTURUM", headerStyle);
+        GUILayout.Label("Current Session", headerStyle);
         
         int sHours = Mathf.FloorToInt((float)currentSessionSeconds / 3600f);
         int sMinutes = Mathf.FloorToInt(((float)currentSessionSeconds % 3600f) / 60f);
         int sSeconds = Mathf.FloorToInt((float)currentSessionSeconds % 60f);
         
-        GUI.color = new Color(0.4f, 1f, 0.4f); // Yeşil
+        GUI.color = new Color(0.4f, 1f, 0.4f); 
         GUILayout.Label(string.Format("{0:D2}:{1:D2}:{2:D2}", sHours, sMinutes, sSeconds), timeStyle);
         GUI.color = Color.white;
         EditorGUILayout.EndVertical();
 
         EditorGUILayout.Space(8);
 
-        // --- 2. TOPLAM SÜRE ---
+        // --- 2. Total Time ---
         EditorGUILayout.BeginVertical("helpBox");
-        GUILayout.Label("TOPLAM ÇALIŞMA SÜRESİ", headerStyle);
+        GUILayout.Label("Total Time", headerStyle);
         
-        int tHours = Mathf.FloorToInt(grandTotalSeconds / 3600f);
-        int tMinutes = Mathf.FloorToInt((grandTotalSeconds % 3600f) / 60f);
-        int tSeconds = Mathf.FloorToInt(grandTotalSeconds % 60f);
+        int tHours = Mathf.FloorToInt((float)(grandTotalSeconds / 3600.0));
+        int tMinutes = Mathf.FloorToInt((float)((grandTotalSeconds % 3600.0) / 60.0));
+        int tSeconds = Mathf.FloorToInt((float)(grandTotalSeconds % 60.0));
         
-        GUI.color = new Color(0.4f, 0.8f, 1f); // Mavi
+        GUI.color = new Color(0.4f, 0.8f, 1f); 
         GUILayout.Label(string.Format("{0:D2}:{1:D2}:{2:D2}", tHours, tMinutes, tSeconds), timeStyle);
         GUI.color = Color.white;
         EditorGUILayout.EndVertical();
 
         EditorGUILayout.Space(12);
 
-        // --- 3. KAPAT BUTONU ---
-        if (GUILayout.Button("Pencereyi Kapat", GUILayout.Height(30)))
+        // --- 3. Close Window ---
+        if (GUILayout.Button("Close Window", GUILayout.Height(30)))
         {
             this.Close();
         }
